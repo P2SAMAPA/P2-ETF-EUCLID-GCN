@@ -25,18 +25,21 @@ UNIVERSES = {
     "COMBINED": ALL_TICKERS
 }
 
-# --- Macro Features (available from 2008) ---
+# --- Macro Features ---
 MACRO_COLS = ["VIX", "DXY", "T10Y2Y", "TBILL_3M"]
 
 # --- GCN Parameters ---
 TRAIN_START = "2008-01-01"
-EMBEDDING_DIM = 16
-HIDDEN_DIM = 8
+ETF_WINDOW = 5                        # Days of past returns per ETF node
+MACRO_WINDOW = 5                      # Days of past values per macro node
+HIDDEN_DIM = 32                       # Increased capacity
 NUM_LAYERS = 3
-EPOCHS = 50
+EPOCHS = 100                          # More epochs
 BATCH_SIZE = 64
 LEARNING_RATE = 0.001
 WEIGHT_DECAY = 1e-4
+DROPOUT = 0.1                         # Reduced dropout
+CORR_THRESHOLD = 0.7                  # Add ETF-ETF edges if correlation > threshold
 RANDOM_SEED = 42
 MIN_OBSERVATIONS = 252
 
