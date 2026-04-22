@@ -1,5 +1,5 @@
 """
-Configuration for P2-ETF-HYPERBOLIC-GNN engine.
+Configuration for P2-ETF-EUCLID-GCN engine.
 """
 
 import os
@@ -8,7 +8,7 @@ from datetime import datetime
 # --- Hugging Face Repositories ---
 HF_DATA_REPO = "P2SAMAPA/fi-etf-macro-signal-master-data"
 HF_DATA_FILE = "master_data.parquet"
-HF_OUTPUT_REPO = "P2SAMAPA/p2-etf-hyperbolic-gnn-results"
+HF_OUTPUT_REPO = "P2SAMAPA/p2-etf-euclid-gcn-results"
 
 # --- Universe Definitions ---
 FI_COMMODITIES_TICKERS = ["TLT", "VCIT", "LQD", "HYG", "VNQ", "GLD", "SLV"]
@@ -28,17 +28,17 @@ UNIVERSES = {
 # --- Macro Features (available from 2008) ---
 MACRO_COLS = ["VIX", "DXY", "T10Y2Y", "TBILL_3M"]
 
-# --- Hyperbolic GNN Parameters ---
-TRAIN_START = "2008-01-01"            # Start of training data
-EMBEDDING_DIM = 16                    # Node feature dimension
-HIDDEN_DIM = 8                        # Hidden layer dimension
-NUM_LAYERS = 2                        # HGCN layers
-EPOCHS = 50                           # Training epochs (reduced for speed)
-BATCH_SIZE = 64                       # Snapshots per batch
+# --- GCN Parameters ---
+TRAIN_START = "2008-01-01"
+EMBEDDING_DIM = 16
+HIDDEN_DIM = 8
+NUM_LAYERS = 3
+EPOCHS = 50
+BATCH_SIZE = 64
 LEARNING_RATE = 0.001
 WEIGHT_DECAY = 1e-4
 RANDOM_SEED = 42
-MIN_OBSERVATIONS = 252                # Minimum data required
+MIN_OBSERVATIONS = 252
 
 # --- Date Handling ---
 TODAY = datetime.now().strftime("%Y-%m-%d")
