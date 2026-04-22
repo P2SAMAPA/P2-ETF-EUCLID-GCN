@@ -36,18 +36,20 @@ def run_gcn():
         graph_seq = data_manager.build_graph_sequence(full_returns, full_macro)
 
         predictor = GCNPredictor(
-            in_dim=config.EMBEDDING_DIM,
+            in_dim=graph_seq["features_seq"].shape[-1],
             hidden_dim=config.HIDDEN_DIM,
             num_layers=config.NUM_LAYERS,
             lr=config.LEARNING_RATE,
             weight_decay=config.WEIGHT_DECAY,
+            dropout=config.DROPOUT,
             seed=config.RANDOM_SEED
         )
 
         print(f"  Training on {len(graph_seq['features_seq'])} days...")
-        predictor.fit(graph_seq, graph_seq["targets"], epochs=config.EPOCHS, batch_size=config.BATCH_SIZE)
+        predictor.fit(graph_seq, graph_seq["targets"],
+                      epochs=config.EPOCHS, batch_size=config.BATCH_SIZE)
 
-        preds = predictor.predict(graph_seq)
+        preds = predictor.predict(graph_seq, graph_seq["target_scaler"])
 
         sorted_preds = sorted(preds.items(), key=lambda x: x[1], reverse=True)
         top3 = [{"ticker": t, "predicted_return": float(v)} for t, v in sorted_preds[:3]]
