@@ -1,5 +1,5 @@
 """
-Streamlit Dashboard for Hyperbolic GNN Engine.
+Streamlit Dashboard for P2-ETF-EUCLID-GCN Engine.
 """
 
 import streamlit as st
@@ -9,7 +9,7 @@ import json
 import config
 from us_calendar import USMarketCalendar
 
-st.set_page_config(page_title="P2Quant Hyperbolic GNN", page_icon="🌀", layout="wide")
+st.set_page_config(page_title="P2Quant Euclid GCN", page_icon="🕸️", layout="wide")
 
 st.markdown("""
 <style>
@@ -46,8 +46,8 @@ data = load_latest_results()
 if data:
     st.sidebar.markdown(f"**Run Date:** {data.get('run_date', 'Unknown')}")
 
-st.markdown('<div class="main-header">🌀 P2Quant Hyperbolic GNN</div>', unsafe_allow_html=True)
-st.markdown('<div>Hyperbolic Graph Neural Networks – Hierarchical ETF‑Macro Embeddings</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">🕸️ P2Quant Euclid GCN</div>', unsafe_allow_html=True)
+st.markdown('<div>Euclidean Graph Convolutional Network – ETF‑Macro Relational Learning</div>', unsafe_allow_html=True)
 
 if data is None:
     st.warning("No data available.")
@@ -69,7 +69,7 @@ for tab, key in zip(tabs, universe_keys):
             ret = top['predicted_return']
             st.markdown(f"""
             <div class="hero-card">
-                <div style="font-size: 1.2rem; opacity: 0.8;">🌀 TOP PICK</div>
+                <div style="font-size: 1.2rem; opacity: 0.8;">🕸️ TOP PICK</div>
                 <div class="hero-ticker">{ticker}</div>
                 <div class="hero-return">Predicted Return: {ret*100:.2f}%</div>
             </div>
