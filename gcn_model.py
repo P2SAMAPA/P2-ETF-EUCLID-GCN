@@ -9,7 +9,7 @@ from torch_geometric.nn import GCNConv
 import numpy as np
 
 class TemporalGCN(nn.Module):
-    def __init__(self, node_feat_dim, hidden_dim, out_dim, num_layers, dropout=0.2):
+    def __init__(self, node_feat_dim, hidden_dim, out_dim, num_layers, dropout=0.1):
         super().__init__()
         self.embed = nn.Linear(node_feat_dim, hidden_dim)
         self.convs = nn.ModuleList()
@@ -42,14 +42,15 @@ class TemporalGCN(nn.Module):
         return preds
 
 class GCNPredictor:
-    def __init__(self, in_dim, hidden_dim, out_dim=1, num_layers=3, lr=0.001, weight_decay=1e-4, seed=42):
+    def __init__(self, in_dim, hidden_dim, out_dim=1, num_layers=3, lr=0.001,
+                 weight_decay=1e-4, dropout=0.1, seed=42):
         torch.manual_seed(seed)
         np.random.seed(seed)
-        self.model = TemporalGCN(in_dim, hidden_dim, out_dim, num_layers)
+        self.model = TemporalGCN(in_dim, hidden_dim, out_dim, num_layers, dropout)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr, weight_decay=weight_decay)
         self.criterion = nn.MSELoss()
 
-    def fit(self, graph_seq, targets, epochs=50, batch_size=64):
+    def fit(self, graph_seq, targets, epochs=100, batch_size=64):
         features = torch.tensor(graph_seq["features_seq"])
         edge_index = torch.tensor(graph_seq["edge_index"], dtype=torch.long)
         etf_indices = list(range(graph_seq["num_etfs"]))
@@ -69,14 +70,16 @@ class GCNPredictor:
                 loss.backward()
                 self.optimizer.step()
                 total_loss += loss.item() * batch_feat.size(0)
-            if (epoch+1) % 10 == 0:
+            if (epoch+1) % 20 == 0:
                 print(f"    Epoch {epoch+1}/{epochs} - Loss: {total_loss/len(dataset):.6f}")
 
-    def predict(self, graph_snapshot):
+    def predict(self, graph_snapshot, target_scaler):
         self.model.eval()
         with torch.no_grad():
             features = torch.tensor(graph_snapshot["features_seq"][-1:])
             edge_index = torch.tensor(graph_snapshot["edge_index"], dtype=torch.long)
             etf_indices = list(range(graph_snapshot["num_etfs"]))
-            preds = self.model(features, edge_index)[0, etf_indices].numpy()
+            preds_scaled = self.model(features, edge_index)[0, etf_indices].numpy()
+        # Inverse transform to original return scale
+        preds = target_scaler.inverse_transform(preds_scaled.reshape(1, -1)).flatten()
         return dict(zip(graph_snapshot["etf_tickers"], preds))
