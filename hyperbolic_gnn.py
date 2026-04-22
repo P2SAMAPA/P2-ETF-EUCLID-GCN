@@ -29,6 +29,7 @@ class HyperbolicGraphConv(MessagePassing):
     def forward(self, x, edge_index):
         # x is in hyperbolic space (Poincaré ball)
         x_tan = self.manifold.logmap0(x)
+        # Propagate: simply sum neighbor features (no normalization)
         out_tan = self.propagate(edge_index, x=x_tan)
         out_tan = self.lin(out_tan)
         if self.bias is not None:
@@ -36,11 +37,8 @@ class HyperbolicGraphConv(MessagePassing):
         out_hyp = self.manifold.expmap0(out_tan)
         return out_hyp
 
-    def message(self, x_j, norm):
-        return norm.view(-1, 1) * x_j
-
-    def update(self, aggr_out):
-        return aggr_out
+    def message(self, x_j):
+        return x_j
 
 class HGCN(nn.Module):
     def __init__(self, in_dim, hidden_dim, out_dim, num_layers, manifold, dropout=0.0):
