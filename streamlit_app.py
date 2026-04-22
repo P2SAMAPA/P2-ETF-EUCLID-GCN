@@ -25,7 +25,7 @@ def load_latest_results():
     try:
         api = HfApi(token=config.HF_TOKEN)
         files = api.list_repo_files(repo_id=config.HF_OUTPUT_REPO, repo_type="dataset")
-        json_files = sorted([f for f in files if f.endswith('.json')], reverse=True)
+        json_files = sorted([f for f in files if f.startswith("euclid_gcn_") and f.endswith('.json')], reverse=True)
         if not json_files:
             return None
         local_path = hf_hub_download(
@@ -50,7 +50,7 @@ st.markdown('<div class="main-header">🕸️ P2Quant Euclid GCN</div>', unsafe_
 st.markdown('<div>Euclidean Graph Convolutional Network – ETF‑Macro Relational Learning</div>', unsafe_allow_html=True)
 
 if data is None:
-    st.warning("No data available.")
+    st.warning("No data available. Please run the daily pipeline first.")
     st.stop()
 
 daily = data['daily_trading']
