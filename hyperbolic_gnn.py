@@ -1,13 +1,14 @@
 """
 Hyperbolic Graph Convolutional Network (HGCN) in the Poincaré ball.
+Uses geoopt for Riemannian optimization.
 """
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import MessagePassing
-from torch_geometric.utils import add_self_loops, degree
-import geoopt.manifolds.poincare.math as pmath
+import geoopt
+import numpy as np
 
 class HyperbolicGraphConv(MessagePassing):
     def __init__(self, in_dim, out_dim, manifold, use_bias=True):
@@ -26,11 +27,9 @@ class HyperbolicGraphConv(MessagePassing):
             nn.init.zeros_(self.bias)
 
     def forward(self, x, edge_index):
-        # x is in tangent space at origin (Euclidean), we map to hyperbolic
-        x_hyp = self.manifold.expmap0(x)
-        out = self.propagate(edge_index, x=x_hyp)
-        # Apply linear transformation in tangent space
-        out_tan = self.manifold.logmap0(out)
+        # x is in hyperbolic space (Poincaré ball)
+        x_tan = self.manifold.logmap0(x)
+        out_tan = self.propagate(edge_index, x=x_tan)
         out_tan = self.lin(out_tan)
         if self.bias is not None:
             out_tan = out_tan + self.bias
@@ -71,7 +70,7 @@ class HyperbolicGNNPredictor:
     def __init__(self, in_dim, hidden_dim, out_dim=1, num_layers=2, lr=0.001, weight_decay=1e-4, seed=42):
         torch.manual_seed(seed)
         np.random.seed(seed)
-        self.manifold = geoopt.PoincareBall(c=1.0)
+        self.manifold = geoopt.manifolds.PoincareBall(c=1.0)
         self.model = HGCN(in_dim, hidden_dim, out_dim, num_layers, self.manifold)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr, weight_decay=weight_decay)
         self.criterion = nn.MSELoss()
@@ -82,10 +81,12 @@ class HyperbolicGNNPredictor:
         etf_indices = list(range(graph_data["num_etfs"]))
         targets = torch.tensor(returns.iloc[-1].values, dtype=torch.float32).view(-1, 1)
 
+        node_features_hyp = self.manifold.expmap0(node_features)
+
         self.model.train()
         for epoch in range(epochs):
             self.optimizer.zero_grad()
-            embeddings = self.model(node_features, edge_index)
+            embeddings = self.model(node_features_hyp, edge_index)
             preds = embeddings[etf_indices]
             loss = self.criterion(preds, targets)
             loss.backward()
@@ -99,6 +100,7 @@ class HyperbolicGNNPredictor:
             node_features = torch.tensor(graph_data["node_features"])
             edge_index = torch.tensor(graph_data["edge_index"], dtype=torch.long)
             etf_indices = list(range(graph_data["num_etfs"]))
-            embeddings = self.model(node_features, edge_index)
+            node_features_hyp = self.manifold.expmap0(node_features)
+            embeddings = self.model(node_features_hyp, edge_index)
             preds = embeddings[etf_indices].squeeze().numpy()
         return dict(zip(graph_data["etf_tickers"], preds))
