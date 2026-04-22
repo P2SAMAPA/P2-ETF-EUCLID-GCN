@@ -3,7 +3,7 @@ from huggingface_hub import HfApi, create_repo, upload_file
 import config
 
 def push_daily_result(payload: dict):
-    filename = f"hyperbolic_gnn_{config.TODAY}.json"
+    filename = f"euclid_gcn_{config.TODAY}.json"
     with open(filename, 'w') as f:
         json.dump(payload, f, indent=2, default=str)
     print(f"Saved local file: {filename}")
