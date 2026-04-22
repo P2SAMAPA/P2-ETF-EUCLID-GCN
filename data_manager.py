@@ -5,6 +5,7 @@ Data loading and preprocessing for Hyperbolic GNN engine.
 import pandas as pd
 import numpy as np
 from huggingface_hub import hf_hub_download
+from sklearn.preprocessing import StandardScaler
 import config
 
 def load_master_data() -> pd.DataFrame:
@@ -43,39 +44,58 @@ def prepare_macro_features(df_wide: pd.DataFrame) -> pd.DataFrame:
     macro_df = macro_df.set_index('Date').ffill().dropna()
     return macro_df
 
-def build_graph_data(returns: pd.DataFrame, macro: pd.DataFrame):
+def build_graph_sequence(returns: pd.DataFrame, macro: pd.DataFrame):
     """
-    Build a bipartite graph: ETFs and macro nodes.
-    Returns node features and edge indices.
+    Build a sequence of graph snapshots (one per day).
+    Returns:
+        - features_seq: (num_days, num_nodes, feat_dim) numpy array
+        - edge_index: (2, num_edges) – same for all days
+        - targets: (num_days, num_etfs) – next‑day returns
+        - etf_tickers: list
     """
+    common_idx = returns.index.intersection(macro.index)
+    returns = returns.loc[common_idx]
+    macro = macro.loc[common_idx]
+
     etf_tickers = returns.columns.tolist()
     macro_cols = macro.columns.tolist()
     num_etfs = len(etf_tickers)
     num_macro = len(macro_cols)
     num_nodes = num_etfs + num_macro
 
-    # Node features: last available values
-    etf_features = returns.iloc[-1].values.reshape(-1, 1)
-    macro_features = macro.iloc[-1].values.reshape(-1, 1)
-    # Pad to same dimension if needed (use simple scaling)
-    from sklearn.preprocessing import StandardScaler
-    scaler = StandardScaler()
-    all_features = np.concatenate([etf_features, macro_features])
-    all_features = scaler.fit_transform(all_features)
-    # Expand to embedding dimension by repeating (or use linear projection later)
-    node_features = np.tile(all_features, (1, config.EMBEDDING_DIM // 1 + 1))[:, :config.EMBEDDING_DIM]
-
-    # Build edges: fully connect ETFs to macro nodes (bipartite)
-    edge_index = []
+    # Build static edge index (fully connected bipartite)
+    edge_list = []
     for i in range(num_etfs):
         for j in range(num_macro):
-            edge_index.append([i, num_etfs + j])
-            edge_index.append([num_etfs + j, i])  # undirected
-    edge_index = np.array(edge_index).T
+            edge_list.append([i, num_etfs + j])
+            edge_list.append([num_etfs + j, i])
+    edge_index = np.array(edge_list).T
+
+    # Scale features globally
+    all_etf_vals = returns.values.flatten()
+    all_macro_vals = macro.values.flatten()
+    etf_scaler = StandardScaler().fit(all_etf_vals.reshape(-1, 1))
+    macro_scaler = StandardScaler().fit(all_macro_vals.reshape(-1, 1))
+
+    features_seq = []
+    targets = []
+
+    for i in range(len(returns) - 1):
+        etf_feat = etf_scaler.transform(returns.iloc[i].values.reshape(-1, 1)).flatten()
+        macro_feat = macro_scaler.transform(macro.iloc[i].values.reshape(-1, 1)).flatten()
+        node_feat = np.concatenate([etf_feat, macro_feat])
+        # Repeat to reach embedding_dim
+        node_feat = np.tile(node_feat, (config.EMBEDDING_DIM // len(node_feat) + 1))[:config.EMBEDDING_DIM]
+        features_seq.append(node_feat.reshape(num_nodes, -1))
+        targets.append(returns.iloc[i+1].values)
+
+    features_seq = np.array(features_seq, dtype=np.float32)
+    targets = np.array(targets, dtype=np.float32)
 
     return {
-        "node_features": node_features.astype(np.float32),
+        "features_seq": features_seq,
         "edge_index": edge_index,
+        "targets": targets,
         "num_etfs": num_etfs,
         "num_macro": num_macro,
         "etf_tickers": etf_tickers,
