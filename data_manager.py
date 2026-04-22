@@ -1,5 +1,5 @@
 """
-Data loading and preprocessing for Hyperbolic GNN engine.
+Data loading and preprocessing for Euclidean GCN engine.
 """
 
 import pandas as pd
