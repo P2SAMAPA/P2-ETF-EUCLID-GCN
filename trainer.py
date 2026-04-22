@@ -1,6 +1,5 @@
 """
-Main training script for Hyperbolic GNN engine.
-Trains on full history 2008–2026, forecasts using latest snapshot.
+Main training script for P2-ETF-EUCLID-GCN engine.
 """
 
 import json
@@ -9,11 +8,11 @@ import numpy as np
 
 import config
 import data_manager
-from hyperbolic_gnn import HyperbolicGNNPredictor
+from gcn_model import GCNPredictor
 import push_results
 
-def run_hyperbolic_gnn():
-    print(f"=== P2-ETF-HYPERBOLIC-GNN Run: {config.TODAY} ===")
+def run_gcn():
+    print(f"=== P2-ETF-EUCLID-GCN Run: {config.TODAY} ===")
     df_master = data_manager.load_master_data()
     df_master = df_master[df_master['Date'] >= config.TRAIN_START]
 
@@ -28,7 +27,6 @@ def run_hyperbolic_gnn():
         if len(returns) < config.MIN_OBSERVATIONS:
             continue
 
-        # Full history
         full_returns = returns
         full_macro = macro.loc[full_returns.index].dropna()
         common_idx = full_returns.index.intersection(full_macro.index)
@@ -37,7 +35,7 @@ def run_hyperbolic_gnn():
 
         graph_seq = data_manager.build_graph_sequence(full_returns, full_macro)
 
-        predictor = HyperbolicGNNPredictor(
+        predictor = GCNPredictor(
             in_dim=config.EMBEDDING_DIM,
             hidden_dim=config.HIDDEN_DIM,
             num_layers=config.NUM_LAYERS,
@@ -68,4 +66,4 @@ def run_hyperbolic_gnn():
     print("\n=== Run Complete ===")
 
 if __name__ == "__main__":
-    run_hyperbolic_gnn()
+    run_gcn()
