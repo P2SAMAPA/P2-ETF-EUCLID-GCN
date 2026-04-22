@@ -1,5 +1,6 @@
 """
 Main training script for Hyperbolic GNN engine.
+Trains on full history 2008–2026, forecasts using latest snapshot.
 """
 
 import json
@@ -14,7 +15,7 @@ import push_results
 def run_hyperbolic_gnn():
     print(f"=== P2-ETF-HYPERBOLIC-GNN Run: {config.TODAY} ===")
     df_master = data_manager.load_master_data()
-    df_master = df_master[df_master['Date'] >= "2008-01-01"]
+    df_master = df_master[df_master['Date'] >= config.TRAIN_START]
 
     macro = data_manager.prepare_macro_features(df_master)
 
@@ -27,13 +28,14 @@ def run_hyperbolic_gnn():
         if len(returns) < config.MIN_OBSERVATIONS:
             continue
 
-        recent_returns = returns.iloc[-config.LOOKBACK_WINDOW:]
-        recent_macro = macro.loc[recent_returns.index].dropna()
-        common_idx = recent_returns.index.intersection(recent_macro.index)
-        recent_returns = recent_returns.loc[common_idx]
-        recent_macro = recent_macro.loc[common_idx]
+        # Full history
+        full_returns = returns
+        full_macro = macro.loc[full_returns.index].dropna()
+        common_idx = full_returns.index.intersection(full_macro.index)
+        full_returns = full_returns.loc[common_idx]
+        full_macro = full_macro.loc[common_idx]
 
-        graph_data = data_manager.build_graph_data(recent_returns, recent_macro)
+        graph_seq = data_manager.build_graph_sequence(full_returns, full_macro)
 
         predictor = HyperbolicGNNPredictor(
             in_dim=config.EMBEDDING_DIM,
@@ -44,9 +46,10 @@ def run_hyperbolic_gnn():
             seed=config.RANDOM_SEED
         )
 
-        print(f"  Training HGCN...")
-        predictor.fit(graph_data, recent_returns, epochs=config.EPOCHS, batch_size=config.BATCH_SIZE)
-        preds = predictor.predict(graph_data)
+        print(f"  Training on {len(graph_seq['features_seq'])} days...")
+        predictor.fit(graph_seq, graph_seq["targets"], epochs=config.EPOCHS, batch_size=config.BATCH_SIZE)
+
+        preds = predictor.predict(graph_seq)
 
         sorted_preds = sorted(preds.items(), key=lambda x: x[1], reverse=True)
         top3 = [{"ticker": t, "predicted_return": float(v)} for t, v in sorted_preds[:3]]
@@ -55,13 +58,6 @@ def run_hyperbolic_gnn():
 
     output_payload = {
         "run_date": config.TODAY,
-        "config": {
-            "lookback_window": config.LOOKBACK_WINDOW,
-            "embedding_dim": config.EMBEDDING_DIM,
-            "hidden_dim": config.HIDDEN_DIM,
-            "num_layers": config.NUM_LAYERS,
-            "epochs": config.EPOCHS
-        },
         "daily_trading": {
             "universes": all_results,
             "top_picks": top_picks
