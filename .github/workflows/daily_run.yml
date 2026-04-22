@@ -1,4 +1,4 @@
-name: Daily Hyperbolic GNN Run
+name: Daily Euclid GCN Run
 
 on:
   schedule:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  run-hgnn:
+  run-gcn:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
