@@ -29,19 +29,16 @@ UNIVERSES = {
 MACRO_COLS = ["VIX", "DXY", "T10Y2Y", "TBILL_3M"]
 
 # --- Hyperbolic GNN Parameters ---
-LOOKBACK_WINDOW = 252                 # Days of historical data for training
-EMBEDDING_DIM = 16                    # Poincaré ball embedding dimension
+TRAIN_START = "2008-01-01"            # Start of training data
+EMBEDDING_DIM = 16                    # Node feature dimension
 HIDDEN_DIM = 8                        # Hidden layer dimension
 NUM_LAYERS = 2                        # HGCN layers
-EPOCHS = 100                          # Training epochs
-BATCH_SIZE = 32
+EPOCHS = 50                           # Training epochs (reduced for speed)
+BATCH_SIZE = 64                       # Snapshots per batch
 LEARNING_RATE = 0.001
 WEIGHT_DECAY = 1e-4
 RANDOM_SEED = 42
 MIN_OBSERVATIONS = 252                # Minimum data required
-
-# --- Shrinking Windows ---
-SHRINKING_WINDOW_START_YEARS = list(range(2010, 2025))
 
 # --- Date Handling ---
 TODAY = datetime.now().strftime("%Y-%m-%d")
