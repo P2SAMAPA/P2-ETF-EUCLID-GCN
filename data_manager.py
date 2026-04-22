@@ -48,9 +48,9 @@ def build_graph_sequence(returns: pd.DataFrame, macro: pd.DataFrame):
     """
     Build a sequence of graph snapshots (one per day).
     Returns:
-        - features_seq: (num_days, num_nodes, feat_dim) numpy array
-        - edge_index: (2, num_edges) – same for all days
-        - targets: (num_days, num_etfs) – next‑day returns
+        - features_seq: (num_days, num_nodes, EMBEDDING_DIM)
+        - edge_index: (2, num_edges)
+        - targets: (num_days, num_etfs)
         - etf_tickers: list
     """
     common_idx = returns.index.intersection(macro.index)
@@ -63,7 +63,7 @@ def build_graph_sequence(returns: pd.DataFrame, macro: pd.DataFrame):
     num_macro = len(macro_cols)
     num_nodes = num_etfs + num_macro
 
-    # Build static edge index (fully connected bipartite)
+    # Static edge index (fully connected bipartite)
     edge_list = []
     for i in range(num_etfs):
         for j in range(num_macro):
@@ -81,15 +81,21 @@ def build_graph_sequence(returns: pd.DataFrame, macro: pd.DataFrame):
     targets = []
 
     for i in range(len(returns) - 1):
-        etf_feat = etf_scaler.transform(returns.iloc[i].values.reshape(-1, 1)).flatten()
-        macro_feat = macro_scaler.transform(macro.iloc[i].values.reshape(-1, 1)).flatten()
-        node_feat = np.concatenate([etf_feat, macro_feat])
-        # Repeat to reach embedding_dim
-        node_feat = np.tile(node_feat, (config.EMBEDDING_DIM // len(node_feat) + 1))[:config.EMBEDDING_DIM]
-        features_seq.append(node_feat.reshape(num_nodes, -1))
+        # Build node features: each node gets a vector of length EMBEDDING_DIM
+        node_feats = []
+        for j, ticker in enumerate(etf_tickers):
+            val = etf_scaler.transform([[returns.iloc[i][ticker]]])[0, 0]
+            # Repeat to reach EMBEDDING_DIM
+            feat = np.full(config.EMBEDDING_DIM, val, dtype=np.float32)
+            node_feats.append(feat)
+        for j, col in enumerate(macro_cols):
+            val = macro_scaler.transform([[macro.iloc[i][col]]])[0, 0]
+            feat = np.full(config.EMBEDDING_DIM, val, dtype=np.float32)
+            node_feats.append(feat)
+        features_seq.append(np.stack(node_feats))  # (num_nodes, EMBEDDING_DIM)
         targets.append(returns.iloc[i+1].values)
 
-    features_seq = np.array(features_seq, dtype=np.float32)
+    features_seq = np.array(features_seq, dtype=np.float32)  # (days, num_nodes, EMBEDDING_DIM)
     targets = np.array(targets, dtype=np.float32)
 
     return {
