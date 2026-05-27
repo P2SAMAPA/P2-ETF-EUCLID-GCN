@@ -2,7 +2,7 @@ name: Daily Euclid GCN Run
 
 on:
   schedule:
-    - cron: '30 00 * * 1-6'
+    - cron: '10 00 * * 1-6'
   workflow_dispatch:
 
 jobs:
