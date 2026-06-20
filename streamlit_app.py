@@ -47,7 +47,7 @@ if data:
     st.sidebar.markdown(f"**Run Date:** {data.get('run_date', 'Unknown')}")
 
 st.markdown('<div class="main-header">🕸️ P2Quant Euclid GCN</div>', unsafe_allow_html=True)
-st.markdown('<div>Euclidean Graph Convolutional Network – ETF‑Macro Relational Learning</div>', unsafe_allow_html=True)
+st.markdown('<div>Spatial-Temporal Graph Convolutional Network – Sequential ETF‑Macro Relational Learning</div>', unsafe_allow_html=True)
 
 if data is None:
     st.warning("No data available. Please run the daily pipeline first.")
