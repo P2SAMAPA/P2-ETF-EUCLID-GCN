@@ -35,13 +35,13 @@ class TemporalGCN(nn.Module):
         x_seq: (Batch, Seq_len, Num_nodes, Feat_dim)
         edge_index: (2, Num_edges) - Shared static graph structure
         """
-        B, L, N, F = x_seq.shape
+        B, L, N, feat_dim = x_seq.shape
         
         # -------------------------------------------------------------
         # 1. Spatial Feature Extraction (Fully Vectorized - No Python Loops)
         # -------------------------------------------------------------
         # Reshape to process all graphs in batch simultaneously
-        x = x_seq.view(B * L * N, F)
+        x = x_seq.view(B * L * N, feat_dim)
         x = self.embed(x)
         
         # Dynamically expand edge_index for the batched graph
@@ -54,7 +54,7 @@ class TemporalGCN(nn.Module):
             x_res = x
             x = conv(x, edge_idx_batch)
             x = self.ln(x)
-            x = F.elu(x) # ELU generally outperforms ReLU in GCNs
+            x = F.elu(x) 
             x = self.dropout(x)
             x = x + x_res  # Residual connection prevents over-smoothing
             
