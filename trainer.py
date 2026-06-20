@@ -21,6 +21,9 @@ def run_gcn():
     all_results = {}
     top_picks = {}
 
+    # Default sequence length matching the model's default
+    SEQ_LEN = getattr(config, 'SEQ_LEN', 10)
+
     for universe_name, tickers in config.UNIVERSES.items():
         print(f"\n--- Processing Universe: {universe_name} ---")
         returns = data_manager.prepare_returns_matrix(df_master, tickers)
@@ -35,21 +38,66 @@ def run_gcn():
 
         graph_seq = data_manager.build_graph_sequence(full_returns, full_macro)
 
+        raw_feat = graph_seq["features_seq"]
+        raw_targets = graph_seq["targets"]
+
+        # -----------------------------------------------------------------
+        # CRITICAL FIX: Reshape flat time-series into sliding windows
+        # Converts (Total_Days, Nodes, Features) -> (Samples, Seq_Len, Nodes, Features)
+        # -----------------------------------------------------------------
+        if raw_feat.ndim == 3:
+            print(f"  Reshaping flat time-series into {SEQ_LEN}-day sliding windows for Temporal GCN...")
+            T, N, F = raw_feat.shape
+            if T <= SEQ_LEN:
+                print(f"  Skipping {universe_name}: Not enough data ({T} days) for sequence length {SEQ_LEN}.")
+                continue
+            
+            # Create sliding windows
+            features_seq = np.array([raw_feat[i:i+SEQ_LEN] for i in range(T - SEQ_LEN + 1)])
+            # The target corresponds to the day immediately following the end of the sequence
+            targets_seq = raw_targets[SEQ_LEN - 1:] 
+        else:
+            # If data_manager already returns 4D sequences, use as-is
+            features_seq = raw_feat
+            targets_seq = raw_targets
+
+        # Reconstruct the sequence dictionary with properly shaped data
+        train_graph_seq = {
+            "features_seq": features_seq,
+            "targets": targets_seq,
+            "edge_index": graph_seq["edge_index"],
+            "num_etfs": graph_seq["num_etfs"],
+            "etf_tickers": graph_seq["etf_tickers"],
+            "target_scaler": graph_seq["target_scaler"]
+        }
+
         predictor = GCNPredictor(
-            in_dim=graph_seq["features_seq"].shape[-1],
+            in_dim=train_graph_seq["features_seq"].shape[-1],
             hidden_dim=config.HIDDEN_DIM,
             num_layers=config.NUM_LAYERS,
             lr=config.LEARNING_RATE,
             weight_decay=config.WEIGHT_DECAY,
             dropout=config.DROPOUT,
-            seed=config.RANDOM_SEED
+            seed=config.RANDOM_SEED,
+            seq_len=SEQ_LEN  # Pass sequence length to the model
         )
 
-        print(f"  Training on {len(graph_seq['features_seq'])} days...")
-        predictor.fit(graph_seq, graph_seq["targets"],
+        print(f"  Training on {len(train_graph_seq['features_seq'])} sequences...")
+        predictor.fit(train_graph_seq, train_graph_seq["targets"],
                       epochs=config.EPOCHS, batch_size=config.BATCH_SIZE)
 
-        preds = predictor.predict(graph_seq, graph_seq["target_scaler"])
+        # -----------------------------------------------------------------
+        # CRITICAL FIX: Extract the exact final window for prediction
+        # The new predict() method expects features_seq to be exactly (Seq_Len, Nodes, Feats)
+        # -----------------------------------------------------------------
+        predict_snapshot = {
+            "features_seq": train_graph_seq["features_seq"][-1], 
+            "edge_index": train_graph_seq["edge_index"],
+            "num_etfs": train_graph_seq["num_etfs"],
+            "etf_tickers": train_graph_seq["etf_tickers"]
+        }
+
+        preds = predictor.predict(predict_snapshot, train_graph_seq["target_scaler"])
 
         sorted_preds = sorted(preds.items(), key=lambda x: x[1], reverse=True)
         top3 = [{"ticker": t, "predicted_return": float(v)} for t, v in sorted_preds[:3]]
